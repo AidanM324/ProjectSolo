@@ -1,0 +1,12 @@
+# Go build artifacts 
+
+/bin/ 
+/dist/ 
+
+*.exe 
+*.test 
+*.out 
+
+# Env files 
+
+.env
