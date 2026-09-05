@@ -18,7 +18,7 @@ containerization, orchestration, infrastructure-as-code, CI/CD, and observabilit
 - [Done] Scaffold Go module structure (api/, worker/, shared/)
 - [Done] API: HTTP endpoint to accept a job submission
 - [Done] API: publish job to RabbitMQ
-- [ ] Worker: consume job from RabbitMQ
+- [Done] Worker: consume job from RabbitMQ
 - [ ] Worker: execute a real task (pick one: image resize / email send / file processing)
 - [ ] Persist job state (pending/running/done/failed) to Postgres
 - [ ] Manual end-to-end test: submit a job, see it processed, check DB state
