@@ -15,9 +15,9 @@ containerization, orchestration, infrastructure-as-code, CI/CD, and observabilit
   for overall progress at a glance.
 
 ## Phase 1 — Core logic locally
-- [ ] Scaffold Go module structure (api/, worker/, shared/)
-- [ ] API: HTTP endpoint to accept a job submission
-- [ ] API: publish job to RabbitMQ
+- [Done] Scaffold Go module structure (api/, worker/, shared/)
+- [Done] API: HTTP endpoint to accept a job submission
+- [Done] API: publish job to RabbitMQ
 - [ ] Worker: consume job from RabbitMQ
 - [ ] Worker: execute a real task (pick one: image resize / email send / file processing)
 - [ ] Persist job state (pending/running/done/failed) to Postgres
