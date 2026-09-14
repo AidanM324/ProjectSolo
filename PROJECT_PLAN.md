@@ -24,9 +24,9 @@ containerization, orchestration, infrastructure-as-code, CI/CD, and observabilit
 - [Done] Manual end-to-end test: submit a job, see it processed, check DB state
 
 ## Phase 2 — Reliability logic
-- [ ] Manual ack/nack so an in-flight job isn't lost on worker crash
-- [ ] Retry with exponential backoff on failure
-- [ ] Dead-letter queue for jobs that exceed max retries
+- [Done] Manual ack/nack so an in-flight job isn't lost on worker crash
+- [Done] Retry with exponential backoff on failure
+- [Done] Dead-letter queue for jobs that exceed max retries
 - [ ] Idempotency keys to prevent duplicate job creation
 - [ ] Test: kill a worker mid-job, confirm no job loss or duplication
 
