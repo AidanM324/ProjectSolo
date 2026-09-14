@@ -1,0 +1,1 @@
+{"to":"test@example2.com","subject":"Hello from the job queue","body":"This is a test email 2 sent via RabbitMQ and Go."}
