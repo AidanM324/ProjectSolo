@@ -49,6 +49,10 @@ by anyone technical reviewing the repo)*
 
 *(to be added in Phase 6 — throughput, recovery time after a killed worker, etc.)*
 
+## Testing
+
+Manually tested by submitting 3 concurrent jobs via curl; verified each transitioned pending → running → done in Postgres, and all 3 emails were delivered correctly via Mailtrap, confirming the full pipeline (API → Postgres → RabbitMQ → Worker → SMTP) works end-to-end.
+
 ## Running locally
 
 *(instructions to be added at the end of Phase 3)*
