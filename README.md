@@ -55,6 +55,9 @@ Manually tested by submitting 3 concurrent jobs via curl; verified each transiti
 
 During multi-job testing, one job failed due to Mailtrap's SMTP rate limit being hit when submitting several jobs in rapid succession — an expected real-world failure mode that motivates the retry/backoff logic built in Phase 2.
 
+#Phase 2 - Issue 8, 9
+Tested retry/backoff logic by deliberately breaking SMTP credentials. The system correctly retried with exponential backoff (2s, 4s, 8s, 16s, 32s), and after Mailtrap temporarily locked the account following repeated failed logins, the job continued retrying against the real (correct) credentials — still failing due to the account-level lockout, not the code — until exhausting 5 retries and correctly routing to the dead-letter queue. This demonstrated the system fails gracefully and predictably even when the downstream failure mode is unexpected.'
+
 ## Running locally
 
 *(instructions to be added at the end of Phase 3)*
