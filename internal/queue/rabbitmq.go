@@ -33,8 +33,8 @@ func PublishJob(ch *amqp.Channel, body []byte) error {
 	err := ch.Publish(
 		"",     // exchange (default)
 		"jobs", // routing key = queue name
-		false,   // mandatory
-		false,   // immediate
+		false,  // mandatory
+		false,  // immediate
 		amqp.Publishing{
 			ContentType:  "application/json",
 			DeliveryMode: amqp.Persistent, // survive broker restart
@@ -63,9 +63,56 @@ func ConsumeJobs(ch *amqp.Channel) (<-chan amqp.Delivery, error) {
 	return msgs, nil
 }
 
-//The key detail here is `auto-ack: false`. 
-//This means RabbitMQ will NOT remove a message from the queue just because a worker received it — it stays in the queue until the worker explicitly acknowledges ("acks") it. This is deliberate and important: if the worker crashes mid-job, 
+//The key detail here is `auto-ack: false`.
+//This means RabbitMQ will NOT remove a message from the queue just because a worker received it — it stays in the queue until the worker explicitly acknowledges ("acks") it. This is deliberate and important: if the worker crashes mid-job,
 //the unacknowledged message goes back to the queue for another worker to pick up, instead of being silently lost. This is the foundation of the reliability work we'll build on in Issue #2 (retries/dead-letter queue).
 
-//`ch.Consume` returns a Go channel (`<-chan amqp.Delivery`) — not to be confused with a RabbitMQ channel, this is Go's built-in concurrency primitive for passing values between goroutines. 
+//`ch.Consume` returns a Go channel (`<-chan amqp.Delivery`) — not to be confused with a RabbitMQ channel, this is Go's built-in concurrency primitive for passing values between goroutines.
 // Each `amqp.Delivery` that comes through represents one message pulled from the queue, and it has a `.Body` field (the raw bytes you published) and an `.Ack()` method you call once you've successfully processed it.
+
+func DeclareRetryQueues(ch *amqp.Channel) error {
+	_, err := ch.QueueDeclare(
+		"jobs_retry",
+		true,
+		false,
+		false,
+		false,
+		amqp.Table{"x-dead-letter-exchange": "", "x-dead-letter-routing-key": "jobs"},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare retry queue: %w", err)
+	}
+	_, err = ch.QueueDeclare("jobs_dead", true, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("failed to declare dead-letter queue: %w", err)
+	}
+	return nil
+}
+
+func RepublishWithDelay(ch *amqp.Channel, body []byte, retryCount int, delayMs int) error {
+	err := ch.Publish(
+		"",
+		"jobs_retry",
+		false, false,
+		amqp.Publishing{ContentType: "application/json", DeliveryMode: amqp.Persistent, Body: body, Expiration: fmt.Sprintf("%d", delayMs), Headers: amqp.Table{"x-retry-count": retryCount}})
+	if err != nil {
+		return fmt.Errorf("failed to republish with delay: %w", err)
+	}
+
+	return nil
+}
+
+func PublishToDeadLetter(ch *amqp.Channel, body []byte) error {
+	err := ch.Publish(
+		"", "jobs_dead", false, false,
+		amqp.Publishing{
+			ContentType:  "application/json",
+			DeliveryMode: amqp.Persistent,
+			Body:         body,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to publish to dead letter queue: %w", err)
+	}
+	return nil
+}

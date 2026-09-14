@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/joho/godotenv"
+	amqp091 "github.com/rabbitmq/amqp091-go"
 
 	"github.com/AidanM324/job-queue/internal/job"
 	"github.com/AidanM324/job-queue/internal/queue"
@@ -15,6 +16,22 @@ import (
 type queuedMessage struct {
 	ID      string          `json:"id"`
 	Payload json.RawMessage `json:"payload"`
+}
+
+const maxRetries = 5
+
+func getRetryCount(msg amqp091.Delivery) int {
+	if val, ok := msg.Headers["x-retry-count"]; ok {
+		if count, ok := val.(int32); ok {
+			return int(count)
+		}
+	}
+	return 0
+}
+
+func backoffDelay(retryCount int) int {
+	// 2s, 4s, 8s, 16s, 32s ... in milliseconds
+	return 2000 * (1 << retryCount)
 }
 
 func main() {
@@ -38,6 +55,11 @@ func main() {
 		return
 	}
 	defer db.Close()
+
+	if err := queue.DeclareRetryQueues(ch); err != nil {
+		fmt.Println("Error declaring retry queues:", err)
+		return
+	}
 
 	msgs, err := queue.ConsumeJobs(ch)
 	if err != nil {
@@ -67,8 +89,22 @@ func main() {
 		}
 
 		if err := job.SendEmail(emailJob); err != nil {
-			fmt.Println("Failed to send email:", err)
+			retryCount := getRetryCount(msg)
+			fmt.Printf("Failed to send email (attempt %d): %v\n", retryCount+1, err)
+
+			if retryCount >= maxRetries {
+				fmt.Println("Max retries exceeded, sending to dead-letter queue:", qm.ID)
+				store.UpdateJobStatus(ctx, db, qm.ID, "dead")
+				queue.PublishToDeadLetter(ch, msg.Body)
+				msg.Ack(false)
+				continue
+			}
+
+			delay := backoffDelay(retryCount)
+			fmt.Printf("Retrying in %dms\n", delay)
 			store.UpdateJobStatus(ctx, db, qm.ID, "failed")
+			queue.RepublishWithDelay(ch, msg.Body, retryCount+1, delay)
+			msg.Ack(false) // remove from main queue, it now lives in jobs_retry
 			continue
 		}
 
