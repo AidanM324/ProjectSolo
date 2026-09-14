@@ -20,8 +20,8 @@ containerization, orchestration, infrastructure-as-code, CI/CD, and observabilit
 - [Done] API: publish job to RabbitMQ
 - [Done] Worker: consume job from RabbitMQ
 - [Done] Worker: execute a real task (pick one: image resize / email send / file processing)
-- [ ] Persist job state (pending/running/done/failed) to Postgres
-- [ ] Manual end-to-end test: submit a job, see it processed, check DB state
+- [Done] Persist job state (pending/running/done/failed) to Postgres
+- [Done] Manual end-to-end test: submit a job, see it processed, check DB state
 
 ## Phase 2 — Reliability logic
 - [ ] Manual ack/nack so an in-flight job isn't lost on worker crash
