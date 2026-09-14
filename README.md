@@ -53,6 +53,8 @@ by anyone technical reviewing the repo)*
 
 Manually tested by submitting 3 concurrent jobs via curl; verified each transitioned pending → running → done in Postgres, and all 3 emails were delivered correctly via Mailtrap, confirming the full pipeline (API → Postgres → RabbitMQ → Worker → SMTP) works end-to-end.
 
+During multi-job testing, one job failed due to Mailtrap's SMTP rate limit being hit when submitting several jobs in rapid succession — an expected real-world failure mode that motivates the retry/backoff logic built in Phase 2.
+
 ## Running locally
 
 *(instructions to be added at the end of Phase 3)*
