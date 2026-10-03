@@ -33,7 +33,7 @@ engineering roles actually care about.
 
 ## Build phases
 
-- [ ] **Phase 1** — Core API + worker logic running locally (Go, RabbitMQ, Postgres)
+- [Done] **Phase 1** — Core API + worker logic running locally (Go, RabbitMQ, Postgres)
 - [ ] **Phase 2** — Reliability: retries, dead-letter queue, idempotency keys, crash recovery
 - [ ] **Phase 3** — Containerize everything (Docker + docker-compose)
 - [ ] **Phase 4** — Provision infrastructure with Terraform
