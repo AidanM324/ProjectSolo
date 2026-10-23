@@ -33,7 +33,7 @@ engineering roles actually care about.
 
 ## Build phases
 
-- [ ] **Phase 1** — Core API + worker logic running locally (Go, RabbitMQ, Postgres)
+- [Done] **Phase 1** — Core API + worker logic running locally (Go, RabbitMQ, Postgres)
 - [ ] **Phase 2** — Reliability: retries, dead-letter queue, idempotency keys, crash recovery
 - [ ] **Phase 3** — Containerize everything (Docker + docker-compose)
 - [ ] **Phase 4** — Provision infrastructure with Terraform
@@ -54,6 +54,10 @@ by anyone technical reviewing the repo)*
 Manually tested by submitting 3 concurrent jobs via curl; verified each transitioned pending → running → done in Postgres, and all 3 emails were delivered correctly via Mailtrap, confirming the full pipeline (API → Postgres → RabbitMQ → Worker → SMTP) works end-to-end.
 
 During multi-job testing, one job failed due to Mailtrap's SMTP rate limit being hit when submitting several jobs in rapid succession — an expected real-world failure mode that motivates the retry/backoff logic built in Phase 2.
+
+##Phase 2 - Issue 8, 9
+
+Tested retry/backoff logic by deliberately breaking SMTP credentials. The system correctly retried with exponential backoff (2s, 4s, 8s, 16s, 32s), and after Mailtrap temporarily locked the account following repeated failed logins, the job continued retrying against the real (correct) credentials — still failing due to the account-level lockout, not the code — until exhausting 5 retries and correctly routing to the dead-letter queue. This demonstrated the system fails gracefully and predictably even when the downstream failure mode is unexpected.'
 
 ## Running locally
 
