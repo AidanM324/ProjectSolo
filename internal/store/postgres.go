@@ -69,3 +69,12 @@ func UpdateJobStatus(ctx context.Context, pool *pgxpool.Pool, id string, status 
 	}
 	return nil
 }
+
+func GetJobStatus(ctx context.Context, pool *pgxpool.Pool, id string) (string, error) {
+	var status string
+	err := pool.QueryRow(ctx, "SELECT status FROM jobs WHERE id = $1", id).Scan(&status)
+	if err != nil {
+		return "", fmt.Errorf("failed to get job status: %w", err)
+	}
+	return status, nil
+}

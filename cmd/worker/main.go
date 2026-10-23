@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 	amqp091 "github.com/rabbitmq/amqp091-go"
@@ -61,6 +64,13 @@ func main() {
 		return
 	}
 
+	// Give this worker only one unacknowledged job at a time, so work is
+	// shared fairly and a crash only affects one job.
+	if err := ch.Qos(1, 0, false); err != nil {
+		fmt.Println("Error setting prefetch:", err)
+		return
+	}
+
 	msgs, err := queue.ConsumeJobs(ch)
 	if err != nil {
 		fmt.Println("Error consuming jobs:", err)
@@ -78,8 +88,15 @@ func main() {
 		}
 
 		fmt.Println("Processing job:", qm.ID)
-		store.UpdateJobStatus(ctx, db, qm.ID, "running")
 
+		if status, err := store.GetJobStatus(ctx, db, qm.ID); err == nil && status == "done" {
+			fmt.Println("Job already done, skipping duplicate delivery:", qm.ID)
+			msg.Ack(false)
+			continue
+		}
+
+		store.UpdateJobStatus(ctx, db, qm.ID, "running")
+		
 		var emailJob job.EmailJob
 		if err := json.Unmarshal(qm.Payload, &emailJob); err != nil {
 			fmt.Println("Failed to parse email job:", err)
@@ -88,23 +105,36 @@ func main() {
 			continue
 		}
 
+		if ms, _ := strconv.Atoi(os.Getenv("WORKER_SIMULATE_DELAY_MS")); ms > 0 {
+			fmt.Printf("Simulating %dms of work on job %s...\n", ms, qm.ID)
+			time.Sleep(time.Duration(ms) * time.Millisecond)
+		}
+		
 		if err := job.SendEmail(emailJob); err != nil {
 			retryCount := getRetryCount(msg)
 			fmt.Printf("Failed to send email (attempt %d): %v\n", retryCount+1, err)
 
 			if retryCount >= maxRetries {
 				fmt.Println("Max retries exceeded, sending to dead-letter queue:", qm.ID)
+				if err := queue.PublishToDeadLetter(ch, msg.Body); err != nil {
+					fmt.Println("Failed to publish to dead-letter queue, requeueing:", err)
+					msg.Nack(false, true)
+					continue
+				}
 				store.UpdateJobStatus(ctx, db, qm.ID, "dead")
-				queue.PublishToDeadLetter(ch, msg.Body)
 				msg.Ack(false)
 				continue
 			}
 
 			delay := backoffDelay(retryCount)
 			fmt.Printf("Retrying in %dms\n", delay)
+			if err := queue.RepublishWithDelay(ch, msg.Body, retryCount+1, delay); err != nil {
+				fmt.Println("Failed to republish for retry, requeueing:", err)
+				msg.Nack(false, true)
+				continue
+			}
 			store.UpdateJobStatus(ctx, db, qm.ID, "failed")
-			queue.RepublishWithDelay(ch, msg.Body, retryCount+1, delay)
-			msg.Ack(false) // remove from main queue, it now lives in jobs_retry
+			msg.Ack(false) // safe: the retry copy is already in jobs_retry
 			continue
 		}
 
