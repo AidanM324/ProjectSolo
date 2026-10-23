@@ -27,8 +27,8 @@ containerization, orchestration, infrastructure-as-code, CI/CD, and observabilit
 - [Done] Manual ack/nack so an in-flight job isn't lost on worker crash
 - [Done] Retry with exponential backoff on failure
 - [Done] Dead-letter queue for jobs that exceed max retries
-- [ ] Idempotency keys to prevent duplicate job creation
-- [ ] Test: kill a worker mid-job, confirm no job loss or duplication
+- [Done] Idempotency keys to prevent duplicate job creation
+- [Done] Test: kill a worker mid-job, confirm no job loss or duplication
 
 ## Phase 3 — Containerize
 - [ ] Dockerfile for API service
