@@ -47,10 +47,20 @@ func main() {
 			return
 		}
 
-		id, err := store.InsertJob(r.Context(), db, "send_email", body)
+		key := r.Header.Get("Idempotency-Key")
+
+		id, created, err := store.InsertJob(r.Context(), db, "send_email", body, key)
 		if err != nil {
 			fmt.Println("Failed to insert job:", err)
 			http.Error(w, "failed to save job", http.StatusInternalServerError)
+			return
+		}
+
+		if !created {
+			// Duplicate request: the job already exists, so don't publish it again.
+			fmt.Println("Duplicate request for existing job:", id)
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintln(w, "Job already exists:", id)
 			return
 		}
 

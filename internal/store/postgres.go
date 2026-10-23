@@ -2,9 +2,11 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,13 +26,40 @@ func Connect(ctx context.Context) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func InsertJob(ctx context.Context, pool *pgxpool.Pool, jobType string, payload []byte) (string, error) {
+// InsertJob returns the job ID and whether a new row was created.
+// If key is non-empty and already used, it returns the original job's ID
+// with created=false instead of inserting a duplicate.
+func InsertJob(ctx context.Context, pool *pgxpool.Pool, jobType string, payload []byte, key string) (string, bool, error) {
 	var id string
-	err := pool.QueryRow(ctx, "INSERT INTO jobs (type, payload) VALUES ($1, $2) RETURNING id", jobType, payload).Scan(&id)
-	if err != nil {
-		return "", fmt.Errorf("failed to insert job: %w", err)
+
+	if key == "" {
+		err := pool.QueryRow(ctx,
+			"INSERT INTO jobs (type, payload) VALUES ($1, $2) RETURNING id",
+			jobType, payload).Scan(&id)
+		if err != nil {
+			return "", false, fmt.Errorf("failed to insert job: %w", err)
+		}
+		return id, true, nil
 	}
-	return id, nil
+
+	err := pool.QueryRow(ctx,
+		`INSERT INTO jobs (type, payload, idempotency_key) VALUES ($1, $2, $3)
+		 ON CONFLICT (idempotency_key) DO NOTHING
+		 RETURNING id`,
+		jobType, payload, key).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Key already used: look up the original job.
+		err = pool.QueryRow(ctx,
+			"SELECT id FROM jobs WHERE idempotency_key = $1", key).Scan(&id)
+		if err != nil {
+			return "", false, fmt.Errorf("failed to look up existing job: %w", err)
+		}
+		return id, false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("failed to insert job: %w", err)
+	}
+	return id, true, nil
 }
 
 func UpdateJobStatus(ctx context.Context, pool *pgxpool.Pool, id string, status string) error {
